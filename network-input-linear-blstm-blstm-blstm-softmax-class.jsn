@@ -1,0 +1,45 @@
+{ 
+    "layers": 
+    [ 
+        { 
+            "size": 110, 
+            "name": "input_layer", 
+            "type": "input" 
+        }, 
+        {
+            "size": 110,
+            "name": "projection_layer",
+            "bias": 1.0,
+            "type": "feedforward_identity"
+        },
+        {
+            "size": 400,
+            "name": "hidden_layer_1",
+            "bias": 1.0,
+            "type": "blstm"
+        },
+        {
+            "size": 300,
+            "name": "hidden_layer_2",
+            "bias": 1.0,
+            "type": "blstm"
+        },
+        { 
+            "size": 200, 
+            "name": "hidden_layer_3", 
+            "bias": 1.0, 
+            "type": "blstm" 
+        }, 
+        { 
+            "size": 17,
+            "name": "output_layer", 
+            "bias": 1.0, 
+            "type": "softmax" 
+        }, 
+        { 
+            "size": 17, 
+            "name": "postoutput_layer", 
+            "type": "multiclass_classification" 
+        } 
+    ] 
+}
