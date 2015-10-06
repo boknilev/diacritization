@@ -1,4 +1,4 @@
-# diacritization
+# Recurrent Diacritizer
 
 This repository contains the code for our paper on Arabic diacritization:
 
