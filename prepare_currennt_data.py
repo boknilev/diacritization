@@ -4,7 +4,7 @@ import operator
 import time
 import sys
 from netCDF4 import Dataset, stringtoarr
-from data_utils import Word, load_extracted_data, load_kaldi_data
+from data_utils import Word, load_extracted_data, load_kaldi_data, load_label_indices
 from utils import *
 import numpy as np
 import argparse
@@ -28,12 +28,11 @@ class CurrenntDataset(object):
                  window_size=DEFAULT_WINDOW_SIZE, map_label2class=None, word_vectors=None):
         """
 
-        :param nc_filename (str): A file to write the dataset in netCDF format
-        :param sequences (list): A list of Sequence objects containing the data
-        :param map_letter2features (dict): a map from letters to feature vectors
-        :param map_label2class (dict): a map from label to class
-        :param word_vectors (dict): a map from word to vector
-        :return:
+        nc_filename (str): A file to write the dataset in netCDF format
+        sequences (list): A list of Sequence objects containing the data
+        map_letter2features (dict): a map from letters to feature vectors
+        map_label2class (dict): a map from label to class
+        word_vectors (dict): a map from word to vector
         """
 
         print 'preparing Currennt dataset'
@@ -234,8 +233,10 @@ class FeatureInitializer(object):
     DIST_GAUSSIAN = 'Gaussian'
     STRAT_RAND = 'Strategy_random'  # initialize by random distributions
     STRAT_WORD2VEC = 'Strategy_word2vec'  # initialize by running word2vec on letter sequences
+    STRAT_FILE = 'Strategy_file' # initialize from file
 
-    def __init__(self, sequences, min_letter_count=50, letter_features_size=10, strategy=STRAT_RAND):
+    def __init__(self, sequences, min_letter_count=50, letter_features_size=10, \
+                    strategy=STRAT_RAND, letter_features_filename=None):
 
         print 'initializing features'
         self.min_letter_count = min_letter_count
@@ -253,6 +254,8 @@ class FeatureInitializer(object):
             self.init_random()
         elif strategy == FeatureInitializer.STRAT_WORD2VEC:
             self.init_word2vec(sequences)
+        elif strategy == FeatureInitializer.STRAT_FILE and letter_features_filename:
+            self.init_from_file(letter_features_filename)
         else:
             sys.stderr.write('Warning: unkown strategy ' + strategy + ' in __init__(), resorting to Random\n')
             self.init_random()
@@ -284,7 +287,7 @@ class FeatureInitializer(object):
                 map_letter2features[letter] = self.init_letter_features_random(self.letter_features_size, dist, params, scale)
         self.map_letter2features = map_letter2features
 
-    def init_letter_features_random(self, letter_features_size, dist, params, scale):
+    def init_letter_features_random(self, letter_features_size, dist=DIST_GAUSSIAN, params=(0, 1), scale=0.1):
         """
         Create a feature vector for a single letter
 
@@ -307,31 +310,57 @@ class FeatureInitializer(object):
     def init_letter_features_gaussian(letter_features_size, param_mean=0, param_stddev=1, scale=1):
 
         return scale * np.random.normal(param_mean, param_stddev, letter_features_size)
+    
+    def init_from_file(self, letter_features_filename):
+        
+        print 'initializing letter features from file:', letter_features_filename
+        map_letter2features = dict()
+        with open(letter_features_filename) as f:
+            for line in f:
+                splt = line.strip().split()
+                letter = splt[0]
+                vec = [float(v) for v in splt[1:]]
+                if letter in map_letter2features:
+                    assert map_letter2features[letter] == vec, 'bad vector comparison with duplicate letter'
+                else:
+                    map_letter2features[letter] = vec
+        if UNK_LETTER not in map_letter2features:
+            map_letter2features[UNK_LETTER] = self.init_letter_features_random(self.letter_features_size)
+        self.map_letter2features = map_letter2features
 
 
 def create_currennt_dataset(train_word_filename, train_word_diac_filename, train_nc_filename, \
-                            test_word_filename, test_word_diac_filename, test_nc_filename, \
+                            test_word_filename=None, test_word_diac_filename=None, test_nc_filename=None, \
                             dev_word_filename=None, dev_word_diac_filename=None, dev_nc_filename=None, \
                             stop_on_punc=False, window_size=5, init_method=FeatureInitializer.STRAT_RAND, \
-                            letter_features_size=10, shadda=Word.SHADDA_WITH_NEXT, word_vectors=None):
+                            letter_features_size=10, shadda=Word.SHADDA_WITH_NEXT, word_vectors=None, \
+                            letter_vectors_filename=None, label2class_filename=None):
 
     print 'loading training set'
     start_time = time.time()
-    train_sequences = load_extracted_data(train_word_filename, train_word_diac_filename, stop_on_punc, shadda)
+    train_sequences = load_extracted_data(train_word_filename, train_word_diac_filename, stop_on_punc, shadda)                    
     feature_initializer = FeatureInitializer(train_sequences, strategy=init_method, \
-                                             letter_features_size=letter_features_size)
-    train_dataset = CurrenntDataset(train_nc_filename, train_sequences, \
+                                             letter_features_size=letter_features_size, \
+                                             letter_features_filename=letter_vectors_filename)
+    if label2class_filename:
+        _, map_label2class = load_label_indices(label2class_filename)
+        train_dataset = CurrenntDataset(train_nc_filename, train_sequences, \
+                                    feature_initializer.letter_features_size, feature_initializer.map_letter2features, \
+                                    window_size=window_size, map_label2class=map_label2class, word_vectors=word_vectors)        
+    else:
+        train_dataset = CurrenntDataset(train_nc_filename, train_sequences, \
                                     feature_initializer.letter_features_size, feature_initializer.map_letter2features, \
                                     window_size=window_size, word_vectors=word_vectors)
     print 'elapsed time:', time.time() - start_time, 'seconds'
-    print 'loading test set'
-    start_time = time.time()
-    test_sequences = load_extracted_data(test_word_filename, test_word_diac_filename, stop_on_punc, shadda)
-    test_dataset = CurrenntDataset(test_nc_filename, test_sequences, \
-                                   feature_initializer.letter_features_size, feature_initializer.map_letter2features, \
-                                   window_size=window_size, map_label2class=train_dataset.map_label2class, \
-                                   word_vectors=word_vectors)
-    print 'elapsed time:', time.time() - start_time, 'seconds'
+    if test_word_filename and test_word_diac_filename and test_nc_filename:
+        print 'loading test set'
+        start_time = time.time()
+        test_sequences = load_extracted_data(test_word_filename, test_word_diac_filename, stop_on_punc, shadda)
+        test_dataset = CurrenntDataset(test_nc_filename, test_sequences, \
+                                       feature_initializer.letter_features_size, feature_initializer.map_letter2features, \
+                                       window_size=window_size, map_label2class=train_dataset.map_label2class, \
+                                       word_vectors=word_vectors)
+        print 'elapsed time:', time.time() - start_time, 'seconds'
     if dev_word_filename and dev_word_diac_filename and dev_nc_filename:
         print 'loading dev set'
         start_time = time.time()
@@ -416,9 +445,9 @@ def main():
     parser.add_argument('-twf', '--train_word_file', help='training word file', required=True)
     parser.add_argument('-twdf', '--train_word_diac_file', help='training word diacritized file', required=True)
     parser.add_argument('-tncf', '--train_nc_file', help='training Currennt nc file', required=True)
-    parser.add_argument('-swf', '--test_word_file', help='testing word file', required=True)
-    parser.add_argument('-swdf', '--test_word_diac_file', help='testing word diacritized file', required=True)
-    parser.add_argument('-sncf', '--test_nc_file', help='testing Currennt nc file', required=True)
+    parser.add_argument('-swf', '--test_word_file', help='testing word file')
+    parser.add_argument('-swdf', '--test_word_diac_file', help='testing word diacritized file')
+    parser.add_argument('-sncf', '--test_nc_file', help='testing Currennt nc file')
     parser.add_argument('-dwf', '--dev_word_file', help='development word file')
     parser.add_argument('-dwdf', '--dev_word_diac_file', help='development word diacritized file')
     parser.add_argument('-dncf', '--dev_nc_file', help='development Currennt nc file')
@@ -426,11 +455,14 @@ def main():
     parser.add_argument('-win', '--window_size', help='context window size (default: 5)', type=int, default=5)
     parser.add_argument('-init', '--init_method', help='input initialization method (default: Gaussian)', \
                         default=FeatureInitializer.STRAT_RAND, \
-                        choices=[FeatureInitializer.STRAT_RAND, FeatureInitializer.STRAT_WORD2VEC])
+                        choices=[FeatureInitializer.STRAT_RAND, FeatureInitializer.STRAT_WORD2VEC, \
+                                 FeatureInitializer.STRAT_FILE])
     parser.add_argument('-size', '--letter_features_size', help='input letter features size', type=int, default=10)
     parser.add_argument('-shadda', '--shadda', help='shadda strategy', default=Word.SHADDA_WITH_NEXT, \
                         choices=[Word.SHADDA_WITH_NEXT, Word.SHADDA_IGNORE, Word.SHADDA_ONLY])
+    parser.add_argument('-lvf', '--letter_vectors_file', help='letter vectors file (for initialization)')
     parser.add_argument('-wvf', '--word_vectors_file', help='word vectors file')
+    parser.add_argument('-l2cf', '--label2class_filename', help='with with labels in order corresponding to indices')
     args = parser.parse_args()
 
     word_vectors = None
@@ -442,7 +474,9 @@ def main():
                             args.dev_word_file, args.dev_word_diac_file, args.dev_nc_file, \
                             stop_on_punc=args.stop_on_punc, window_size=args.window_size, \
                             init_method=args.init_method, letter_features_size=args.letter_features_size, \
-                            shadda=args.shadda, word_vectors=word_vectors)
+                            shadda=args.shadda, word_vectors=word_vectors, \
+                            letter_vectors_filename=args.letter_vectors_file, \
+                            label2class_filename=args.label2class_filename)
 
 
 def main_kaldi():

@@ -45,10 +45,10 @@ class Word(object):
     def make_labels(self, shadda=SHADDA_WITH_NEXT):
         """
         Make labels for the word
-        :param shadda: 'with_next' will create a new label for each pair of seen shadda+vowel
+        shadda: 'with_next' will create a new label for each pair of seen shadda+vowel
                        'ignore' will ignore all shadda occurrences
                        'only' will create only shadda labels and ignore all other diacritics
-        :return:
+        return:
         """
 
         if self.word != REGEX_DIACS.sub('', self.word_diac):
@@ -275,12 +275,12 @@ def load_extracted_data(word_filename, word_diac_filename, stop_on_punc=False, s
     """
     Load data extracted from the Treebank
 
-    :param word_filename (str): A text file with one word per line, a blank line between sentences.
-    :param word_diac_filename (str): A text file with one diacritized word per line, a blank line between sentences.
+    word_filename (str): A text file with one word per line, a blank line between sentences.
+    word_diac_filename (str): A text file with one diacritized word per line, a blank line between sentences.
                                Corresponds to word_filename.
-    :param stop_on_punc (bool): If True, stop sequence on punctuation
-    :param shadda (str): Strategy for dealing with shadda
-    :return: sequences (list): A list of Sequence objects containing sentences for the data set
+    stop_on_punc (bool): If True, stop sequence on punctuation
+    shadda (str): Strategy for dealing with shadda
+    return: sequences (list): A list of Sequence objects containing sentences for the data set
     """
 
     print 'loading extracted data from:', word_filename, word_diac_filename
@@ -333,9 +333,9 @@ def load_kaldi_data(bw_mada_filename, shadda=Word.SHADDA_WITH_NEXT):
     """
     Load data used in Kaldi experiments
 
-    :param bw_mada_filename: each line contains an id followed by bw:mada strings
-    :param shadda:
-    :return:
+    bw_mada_filename: each line contains an id followed by bw:mada strings
+    shadda:
+    return:
     """
 
     print 'loading kaldi data from:', bw_mada_filename
@@ -366,4 +366,19 @@ def load_kaldi_data(bw_mada_filename, shadda=Word.SHADDA_WITH_NEXT):
     print 'found', len(sequences), 'sequences'
     print 'average sequence length:', np.mean(sequence_lengths), 'std dev:', np.std(sequence_lengths), 'max:', max(sequence_lengths)
     return sequences
+
+
+def load_label_indices(label_indices_filename):
+    """
+    Load label indices used in training
+    
+    label_indices_filename: one label (diacritic) per line, in order used in Current
+    returns class2label, label2class (dicts): maps from index to label and from label to index
+    """
+    
+    labels = open(label_indices_filename).readlines()
+    labels = [label.strip() for label in labels]
+    class2label, label2class = dict(enumerate(labels)), dict(zip(labels, range(len(labels))))
+    return class2label, label2class
+
 

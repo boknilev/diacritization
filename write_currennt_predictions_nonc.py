@@ -1,8 +1,10 @@
 __author__ = 'belinkov'
 
-from netCDF4 import Dataset
+# write current predictions without using any .nc file
+
+#from netCDF4 import Dataset
 from utils import *
-from data_utils import load_extracted_data, Word
+from data_utils import load_extracted_data, Word, load_label_indices
 import numpy as np
 import sys
 
@@ -26,25 +28,22 @@ def collect_predictions(num_labels, pred_filename):
     return pred_classes
 
 
-def convert_file(word_filename, word_diac_filename, pred_csv_filename, pred_output_filename, train_nc_filename):
+def convert_file(word_filename, word_diac_filename, pred_csv_filename, pred_output_filename, label_indices_filename):
     """
     Convert Currennt output to predictions
 
-    :param word_filename (str): file with words (non-diac)
-    :param word_diac_filename (str): file with words (diac)
-    :param pred_csv_filename (str): file in csv format with predictions
-    :param pred_output_filename (str): file to write predictions in Kaldi format (bw-currennt)
-    :param train_nc_filename (str): file in Currennt format that was used to train the model
+    word_filename (str): file with words (non-diac)
+    word_diac_filename (str): file with words (diac)
+    pred_csv_filename (str): file in csv format with predictions
+    pred_output_filename (str): file to write predictions in Kaldi format (bw-currennt)
+    label_indices_filename (str): file with labels, one label per line, in the order corresponding to indices used in Current
     :return:
     """
 
     sequences = load_extracted_data(word_filename, word_diac_filename)
-
-    train_nc_file = Dataset(train_nc_filename)
-    num_labels = len(train_nc_file.dimensions['numLabels'])
-    nc_labels = [''.join(l.data) for l in train_nc_file.variables['labels']]
-    class2label = dict(zip(range(len(nc_labels)), nc_labels))
+    class2label, _ = load_label_indices(label_indices_filename)
     print class2label
+    num_labels = len(class2label)
 
     g = open(pred_output_filename, 'w')
     f = open(pred_csv_filename)
@@ -93,7 +92,7 @@ def main():
     if len(sys.argv) == 6:
         convert_file(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])
     else:
-        print 'USAGE: python ' + sys.argv[0] + ' <word file> <word diac file> <currennt pred csv file> <pred out file> <train nc file>'
+        print 'USAGE: python ' + sys.argv[0] + ' <word file> <word diac file> <currennt pred csv file> <pred out file> <label indices file>'
 
 
 if __name__ == '__main__':

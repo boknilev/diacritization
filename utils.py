@@ -2,6 +2,7 @@ __author__ = 'belinkov'
 
 from itertools import izip_longest
 from numpy import cumsum
+import subprocess
 
 
 def grouper(iterable, n, fillvalue=None):
@@ -68,3 +69,10 @@ def get_word_vectors_size(word_vectors):
 
     for word in word_vectors:
         return len(word_vectors[word])
+        
+        
+def bw2utf8(bw):
+    
+    pipe = subprocess.Popen(['perl', 'bw2utf8.pl', bw], stdout=subprocess.PIPE)
+    utf8 = pipe.stdout.read().decode('utf-8')
+    return utf8
