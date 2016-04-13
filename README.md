@@ -46,6 +46,13 @@ python write_currennt_predictions.py test.txt test_diac.txt test.csv.out pred.tx
 ```
 The predicted diacritized text will be written to pred.txt. 
 
+### Diacritizing raw text
+To diacritize a raw text, you'll need to prepare it in the format specified under **Data preparation**. Then, convert the file to netCDF format using `prepare_data_for_currennt.py`. 
+
+You can use the final trained 3-layer B-LSTM model described in our paper. The trained weights are available in the `*-final.jsn` file. 
+
+You will want to make sure the input features (letter vectors) and label indices in the netCDF file you create are identical to those used in the trained model. For this, you can provide `letter_vectors.txt` and `label_indices.txt` correspondingly. Consult the options in `python prepare_data_for_currennt -h` for passing these as arguments. 
+
 ## Citing
 If you use this code in your work, please consider citing our paper:
 "Arabic Diacritization with Recurrent Neural Networks", Yonatan Belinkov and James Glass, EMNLP 2015.
@@ -68,5 +75,4 @@ If you use this code in your work, please consider citing our paper:
 For any questions or suggestions, email belinkov@mit.edu. 
 
 ## TODO
-* Provide data and pre-trained model.
-* How to diacritize new text with pre-trained model. 
+* Provide data.
